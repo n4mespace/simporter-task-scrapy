@@ -1,23 +1,23 @@
-import scrapy
+from scrapy import Item, Field
 
 
-class MenHoodieItem(scrapy.Item):
-    product_id = scrapy.Field()
-    product_url = scrapy.Field()
-    name = scrapy.Field()
-    discount = scrapy.Field()  # In percents
-    discounted_price = scrapy.Field()  # 0 if no sale
-    original_price = scrapy.Field()
-    total_reviews = scrapy.Field()
+class MenHoodieItem(Item):
+    product_id = Field()
+    name = Field()
+    product_url = Field()
+    original_price = Field()
+    discounted_price = Field()  # 0 if no sale
+    discount = Field()  # In percents
+    total_reviews = Field()
     product_info = (
-        scrapy.Field()
+        Field()
     )  # formatted string, e.g. “Occasion:Daily;Style:Fashion”
 
 
-class ReviewItem(scrapy.Item):
-    product_id = scrapy.Field()
-    rating = scrapy.Field()
-    timestamp = scrapy.Field()  # Unix timestamp
-    text = scrapy.Field()
-    size = scrapy.Field()
-    color = scrapy.Field()
+class ReviewItem(Item):
+    product_id = Field()
+    rating = Field()
+    timestamp = Field()  # Unix timestamp
+    text = Field()
+    size = Field()
+    color = Field()
