@@ -8,6 +8,7 @@ authors = ["n4mespace <zaxarchuk.d@gmail.com>"]
 python = "^3.8"
 Scrapy = "^2.4.1"
 pre-commit = "^2.9.3"
+typing = "^3.7.4"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^3.8.4"
