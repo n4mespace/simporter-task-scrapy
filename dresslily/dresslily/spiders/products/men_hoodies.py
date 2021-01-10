@@ -11,22 +11,7 @@ from datetime import datetime
 from typing import List, Tuple, Iterable, Optional, Dict, Any
 
 from ...items import MenHoodieItem, ReviewItem
-
-
-lua_script_page_load: str = """
-    function main(splash)
-        assert(splash:go(splash.args.url))
-        assert(splash:wait(1))
-
-        while not splash:select('body > div.dl-page > div.good-main > div.good-hgap.good-basic-info > div.goodprice > div.goodprice-line > div.goodprice-line-start > span.curPrice.my-shop-price.js-dl-curPrice.shop-price-red > span') do
-            assert(splash:wait(0.1))
-        end
-
-        return {
-            html=splash:html()
-        }
-    end
-"""
+from .splash_scripts import NEXT_REVIEWS_PAGE, PAGE_LOADING_WAIT
 
 
 class MenHoodiesSpider(CrawlSpider):
@@ -49,7 +34,7 @@ class MenHoodiesSpider(CrawlSpider):
         "png": 0,
         "html": 1,
         "endpoint": "execute",
-        "lua_source": lua_script_page_load,
+        "lua_source": PAGE_LOADING_WAIT,
     }
 
     # Hoodie selectors
@@ -61,9 +46,7 @@ class MenHoodiesSpider(CrawlSpider):
     ORIGINAL_PRICE_XPATH: str = "/html/body/div[1]/div[5]/div[3]/div[3]/div[1]/div[1]/span[3]/span/text()"
 
     # Hoodie review selectors
-    REVIEWS_XPATH: str = (
-        "/html/body/div[1]/div[5]/div[5]/div[4]/div[2]/div/div"
-    )
+    REVIEWS_XPATH: str = "/html/body/div[1]/div[5]/div[5]/div[4]/div[2]/div//div[@class='reviewlist clearfix']"
     RATING_SELECTED_STARS_XPATH: str = (
         ".//p[@class='starscon_b dib']/i[@class='icon-star-black']"
     )
@@ -122,8 +105,6 @@ class MenHoodiesSpider(CrawlSpider):
         ).extract_first()
         total_reviews: int = int(total_reviews_str) if total_reviews_str else 0
 
-        self.product_id_counter += 1
-
         yield MenHoodieItem(
             product_id=product_id,
             product_url=product_url,
@@ -135,7 +116,7 @@ class MenHoodiesSpider(CrawlSpider):
             product_info=product_info,
         )
 
-        reviews: List[HtmlResponse] = response.xpath(self.REVIEWS_XPATH)[:-1]
+        reviews: List[HtmlResponse] = response.xpath(self.REVIEWS_XPATH)
 
         for review in reviews:
             rating: int = len(
@@ -161,6 +142,8 @@ class MenHoodiesSpider(CrawlSpider):
                 size=size,
                 color=color,
             )
+
+        self.product_id_counter += 1
 
     # Replace scrapy Request to splash Request
     # details: https://github.com/scrapy-plugins/scrapy-splash/issues/92
