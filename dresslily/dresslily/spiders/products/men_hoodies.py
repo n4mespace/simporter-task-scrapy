@@ -3,7 +3,10 @@ from scrapy.linkextractors import LinkExtractor
 from scrapy.http import HtmlResponse
 from scrapy import Item
 from scrapy.spiders import CrawlSpider, Rule
-from scrapy_splash import SplashRequest
+from scrapy_splash import SplashRequest, SplashTextResponse
+
+from time import mktime
+from datetime import datetime
 
 from typing import List, Tuple, Iterable, Optional, Dict, Any
 
@@ -41,6 +44,14 @@ class MenHoodiesSpider(CrawlSpider):
         ),
     )
 
+    splash_args: Dict[str, Any] = {
+        "wait": 3.0,
+        "png": 0,
+        "html": 1,
+        "endpoint": "execute",
+        "lua_source": lua_script_page_load,
+    }
+
     # Hoodie selectors
     NAME_XPATH: str = "/html/body/div[1]/div[5]/div[3]/h1/span[2]/text()"
     DISCOUNT_XPATH: str = "/html/body/div[1]/div[5]/div[3]/div[3]/div[1]/div[1]/span[3]/span/text()"
@@ -53,6 +64,14 @@ class MenHoodiesSpider(CrawlSpider):
     REVIEWS_XPATH: str = (
         "/html/body/div[1]/div[5]/div[5]/div[4]/div[2]/div/div"
     )
+    RATING_SELECTED_STARS_XPATH: str = (
+        ".//p[@class='starscon_b dib']/i[@class='icon-star-black']"
+    )
+    TIMESTAMP_XPATH: str = ".//span[@class='reviewtime']/text()"
+    TIMESTAMP_FORMAT: str = "%b,%d %Y %H:%M:%S"
+    TEXT_XPATH: str = ".//p[@class='reviewcon']/text()"
+    SIZE_XPATH: str = ".//p[@class='color-size']/span[1]/text()"
+    COLOR_XPATH: str = ".//p[@class='color-size']/span[2]/text()"
 
     product_id_counter: int = 0
 
@@ -116,47 +135,51 @@ class MenHoodiesSpider(CrawlSpider):
             product_info=product_info,
         )
 
-        # reviews: List[str] = response.xpath(self.REVIEWS_XPATH)
+        reviews: List[HtmlResponse] = response.xpath(self.REVIEWS_XPATH)[:-1]
 
-        # for review in reviews:
-        #     rating = ...
-        #     timestamp = ...
-        #     text = ...
-        #     size = ...
-        #     color = ...
+        for review in reviews:
+            rating: int = len(
+                review.xpath(self.RATING_SELECTED_STARS_XPATH).extract()
+            )
+            time: str = review.xpath(self.TIMESTAMP_XPATH).extract_first()
+            timestamp: float = mktime(
+                datetime.strptime(time, self.TIMESTAMP_FORMAT).timetuple()
+            )
+            text: str = review.xpath(self.TEXT_XPATH).extract_first()
+            size: str = (
+                review.xpath(self.SIZE_XPATH).extract_first().split(": ")[-1]
+            )
+            color: str = (
+                review.xpath(self.COLOR_XPATH).extract_first().split(": ")[-1]
+            )
 
-        #     yield ReviewItem(
-        #         product_id=product_id,
-        #         rating=rating,
-        #         timestamp=timestamp,
-        #         text=text,
-        #         size=size,
-        #         color=color,
-        #     )
+            yield ReviewItem(
+                product_id=product_id,
+                rating=rating,
+                timestamp=timestamp,
+                text=text,
+                size=size,
+                color=color,
+            )
 
     # Replace scrapy Request to splash Request
     # details: https://github.com/scrapy-plugins/scrapy-splash/issues/92
     def _build_request(self, rule_index, link):
-        splash_args: Dict[str, Any] = {
-            "wait": 3.0,
-            "png": 0,
-            "html": 1,
-            "endpoint": "execute",
-            "lua_source": lua_script_page_load,
-        }
         return SplashRequest(
             url=link.url,
             callback=self._callback,
             endpoint="execute",
             # dont_process_response=True,
             errback=self._errback,
-            args=splash_args,
+            args=self.splash_args,
             meta=dict(rule=rule_index, link_text=link.text),
         )
 
-    # Delete instance check for follow ups to work
+    # Add SplashTextResponse to instance check for follow ups to work
     # details: https://github.com/scrapy-plugins/scrapy-splash/issues/92
     def _requests_to_follow(self, response):
+        if not isinstance(response, (HtmlResponse, SplashTextResponse)):
+            return
         seen = set()
         for rule_index, rule in enumerate(self._rules):
             links = [
