@@ -10,6 +10,22 @@ from typing import List, Tuple, Iterable, Optional, Dict, Any
 from ...items import MenHoodieItem, ReviewItem
 
 
+lua_script_page_load: str = """
+    function main(splash)
+        assert(splash:go(splash.args.url))
+        assert(splash:wait(1))
+
+        while not splash:select('body > div.dl-page > div.good-main > div.good-hgap.good-basic-info > div.goodprice > div.goodprice-line > div.goodprice-line-start > span.curPrice.my-shop-price.js-dl-curPrice.shop-price-red > span') do
+            assert(splash:wait(0.1))
+        end
+
+        return {
+            html=splash:html()
+        }
+    end
+"""
+
+
 class MenHoodiesSpider(CrawlSpider):
     name: str = "men_hoodies"
     allowed_domains: List[str] = ["www.dresslily.com"]
@@ -100,25 +116,29 @@ class MenHoodiesSpider(CrawlSpider):
             product_info=product_info,
         )
 
+        # reviews: List[str] = response.xpath(self.REVIEWS_XPATH)
+
+        # for review in reviews:
+        #     rating = ...
+        #     timestamp = ...
+        #     text = ...
+        #     size = ...
+        #     color = ...
+
+        #     yield ReviewItem(
+        #         product_id=product_id,
+        #         rating=rating,
+        #         timestamp=timestamp,
+        #         text=text,
+        #         size=size,
+        #         color=color,
+        #     )
+
     # Replace scrapy Request to splash Request
+    # details: https://github.com/scrapy-plugins/scrapy-splash/issues/92
     def _build_request(self, rule_index, link):
-        lua_script_page_load: str = """
-            function main(splash)
-                assert(splash:go(splash.args.url))
-
-                while not splash:select(
-                    'body > div.dl-page > div.good-main > div.good-hgap.good-basic-info > div.goodprice > div.goodprice-line > div.goodprice-line-start > span.curPrice.my-shop-price.js-dl-curPrice.shop-price-red > span > span'
-                ).outerHtml do
-                    splash:wait(0.1)
-                end
-
-                return {
-                    html=splash:html()
-                }
-            end
-        """
         splash_args: Dict[str, Any] = {
-            "wait": 1.0,
+            "wait": 3.0,
             "png": 0,
             "html": 1,
             "endpoint": "execute",
@@ -127,12 +147,15 @@ class MenHoodiesSpider(CrawlSpider):
         return SplashRequest(
             url=link.url,
             callback=self._callback,
-            dont_process_response=True,
+            endpoint="execute",
+            # dont_process_response=True,
             errback=self._errback,
             args=splash_args,
             meta=dict(rule=rule_index, link_text=link.text),
         )
 
+    # Delete instance check for follow ups to work
+    # details: https://github.com/scrapy-plugins/scrapy-splash/issues/92
     def _requests_to_follow(self, response):
         seen = set()
         for rule_index, rule in enumerate(self._rules):
