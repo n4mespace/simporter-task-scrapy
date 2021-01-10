@@ -5,7 +5,7 @@ from scrapy import Item
 from scrapy.spiders import CrawlSpider, Rule
 from scrapy_splash import SplashRequest
 
-from typing import List, Tuple, Iterable, Optional, Dict
+from typing import List, Tuple, Iterable, Optional, Dict, Any
 
 from ...items import MenHoodieItem, ReviewItem
 
@@ -25,12 +25,18 @@ class MenHoodiesSpider(CrawlSpider):
         ),
     )
 
+    # Hoodie selectors
     NAME_XPATH: str = "/html/body/div[1]/div[5]/div[3]/h1/span[2]/text()"
     DISCOUNT_XPATH: str = "/html/body/div[1]/div[5]/div[3]/div[3]/div[1]/div[1]/span[3]/span/text()"
-    PRODUCT_INFO_KEYS_XPATH: str = "/html/body/div[1]/div[5]/div[3]/div[12]/div[2]/div[5]/div[1]/div//strong/text()"
-    PRODUCT_INFO_VALUES_XPATH: str = "/html/body/div[1]/div[5]/div[3]/div[12]/div[2]/div[5]/div[1]/div/div[2]/div/text()"
+    INFO_KEYS_XPATH: str = "/html/body/div[1]/div[5]/div[3]/div[12]/div[2]/div[5]/div[1]/div//strong/text()"
+    INFO_VALUES_XPATH: str = "/html/body/div[1]/div[5]/div[3]/div[12]/div[2]/div[5]/div[1]/div/div[2]/div/text()"
     TOTAL_REVIEWS_XPATH: str = "//*[@id='js_reviewCountText']/text()"
     ORIGINAL_PRICE_XPATH: str = "/html/body/div[1]/div[5]/div[3]/div[3]/div[1]/div[1]/span[3]/span/text()"
+
+    # Hoodie review selectors
+    REVIEWS_XPATH: str = (
+        "/html/body/div[1]/div[5]/div[5]/div[4]/div[2]/div/div"
+    )
 
     product_id_counter: int = 0
 
@@ -60,13 +66,13 @@ class MenHoodiesSpider(CrawlSpider):
         product_info_keys: List[str] = list(
             map(
                 str.strip,
-                response.xpath(self.PRODUCT_INFO_KEYS_XPATH).extract(),
+                response.xpath(self.INFO_KEYS_XPATH).extract(),
             )
         )
         product_info_values: List[str] = list(
             map(
                 str.strip,
-                response.xpath(self.PRODUCT_INFO_VALUES_XPATH).extract(),
+                response.xpath(self.INFO_VALUES_XPATH).extract(),
             )
         )[1::2]
         product_info: str = "".join(
@@ -94,14 +100,48 @@ class MenHoodiesSpider(CrawlSpider):
             product_info=product_info,
         )
 
-        # yield ReviewItem()
-
+    # Replace scrapy Request to splash Request
     def _build_request(self, rule_index, link):
+        lua_script_page_load: str = """
+            function main(splash)
+                assert(splash:go(splash.args.url))
+
+                while not splash:select(
+                    'body > div.dl-page > div.good-main > div.good-hgap.good-basic-info > div.goodprice > div.goodprice-line > div.goodprice-line-start > span.curPrice.my-shop-price.js-dl-curPrice.shop-price-red > span > span'
+                ).outerHtml do
+                    splash:wait(0.1)
+                end
+
+                return {
+                    html=splash:html()
+                }
+            end
+        """
+        splash_args: Dict[str, Any] = {
+            "wait": 1.0,
+            "png": 0,
+            "html": 1,
+            "endpoint": "execute",
+            "lua_source": lua_script_page_load,
+        }
         return SplashRequest(
             url=link.url,
             callback=self._callback,
+            dont_process_response=True,
             errback=self._errback,
-            endpoint="render.html",
-            args={"wait": 15.0},
+            args=splash_args,
             meta=dict(rule=rule_index, link_text=link.text),
         )
+
+    def _requests_to_follow(self, response):
+        seen = set()
+        for rule_index, rule in enumerate(self._rules):
+            links = [
+                lnk
+                for lnk in rule.link_extractor.extract_links(response)
+                if lnk not in seen
+            ]
+            for link in rule.process_links(links):
+                seen.add(link)
+                request = self._build_request(rule_index, link)
+                yield rule.process_request(request, response)
