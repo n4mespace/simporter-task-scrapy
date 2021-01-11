@@ -5,14 +5,18 @@ from scrapy.spiders import CrawlSpider, Rule
 from scrapy_splash import SplashRequest
 
 from shutil import which
+
 from selenium import webdriver
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
 
 from time import mktime
 from datetime import datetime
 
-from typing import List, Tuple, Iterable, Optional, Dict, Any, Union
+from typing import List, Tuple, Iterable, Optional, Dict, Any
 
 from ...items import MenHoodieItem, ReviewItem
 from ..splash_scripts import PAGE_LOADING_WAIT_SCRIPT
@@ -26,7 +30,7 @@ class MenHoodiesSpider(CrawlSpider):
     ]
 
     rules: Tuple[Rule, ...] = (
-        # Rule(LinkExtractor(allow=r"page-[0-9]+")),
+        Rule(LinkExtractor(allow=r"page-[0-9]+")),
         Rule(
             LinkExtractor(allow=r"product[0-9]+"),
             callback="parse_item",
@@ -43,6 +47,8 @@ class MenHoodiesSpider(CrawlSpider):
         "endpoint": "execute",
         "lua_source": PAGE_LOADING_WAIT_SCRIPT,
     }
+
+    product_id_counter: int = 0
 
     # Hoodie selectors
     NAME_XPATH: str = "/html/body/div[1]/div[5]/div[3]/h1/span[2]/text()"
@@ -66,11 +72,9 @@ class MenHoodiesSpider(CrawlSpider):
         '//*[@id="js_reviewPager"]/ul/li[{page_num}]/a'
     )
 
-    product_id_counter: int = 0
+    REVIEWS_BY_PAGE_COUNT: int = 4
 
-    def parse_item(
-        self, response: HtmlResponse
-    ) -> Union[Iterable[Item], Iterable[SplashRequest]]:
+    def parse_item(self, response: HtmlResponse) -> Iterable[Item]:
         product_id: int = self.product_id_counter
         product_url: str = response.meta["splash"]["args"]["url"]
         name: str = response.xpath(self.NAME_XPATH).get("")
@@ -117,34 +121,37 @@ class MenHoodiesSpider(CrawlSpider):
 
         response.meta["product_id"] = product_id
         response.meta["product_url"] = product_url
+        response.meta["total_reviews"] = total_reviews
 
         if total_reviews > 0:
             yield from self.parse_item_reviews(response=response)
 
         self.product_id_counter = product_id + 1
 
-    def parse_item_reviews(
-        self,
-        response: HtmlResponse,
-    ) -> Union[Iterable[Item], Iterable[SplashRequest]]:
+    def parse_item_reviews(self, response: HtmlResponse) -> Iterable[Item]:
         product_id: int = response.meta["product_id"]
         product_url: str = response.meta["product_url"]
-        page_num: int = 3
+        total_reviews: int = response.meta["total_reviews"]
+        page_num: int = 2
 
         try_next_page: bool = True
 
         while try_next_page:
-            reviews: Optional[List[HtmlResponse]] = response.xpath(
-                self.REVIEWS_XPATH
-            )
+            reviews: List[HtmlResponse] = response.xpath(self.REVIEWS_XPATH)
 
             for review in reviews:
                 rating: int = len(
                     review.xpath(self.RATING_SELECTED_STARS_XPATH).getall()
                 )
                 time: str = review.xpath(self.TIMESTAMP_XPATH).get("")
-                timestamp: float = mktime(
-                    datetime.strptime(time, self.TIMESTAMP_FORMAT).timetuple()
+                timestamp: float = (
+                    mktime(
+                        datetime.strptime(
+                            time, self.TIMESTAMP_FORMAT
+                        ).timetuple()
+                    )
+                    if time
+                    else 0.0
                 )
                 text: str = review.xpath(self.TEXT_XPATH).get("")
                 size: str = (
@@ -163,7 +170,7 @@ class MenHoodiesSpider(CrawlSpider):
                     color=color,
                 )
 
-            if not self.driver:
+            if total_reviews >= self.REVIEWS_BY_PAGE_COUNT * page_num:
                 options = Options()
                 options.add_argument("--headless")
                 options.add_argument("--disable-gpu")
@@ -175,32 +182,45 @@ class MenHoodiesSpider(CrawlSpider):
                     chrome_options=options,
                 )
 
-            self.driver.get(product_url)
+                self.driver.get(product_url)
 
-            next_review_page_btn = self.driver.find_elements_by_xpath(
-                self.NEXT_REVIEWS_PAGE_XPATH.format(page_num=page_num)
-            )
-
-            if next_review_page_btn and next_review_page_btn[0].text != ">":
                 try:
-                    next_review_page_btn[0].click()
-                    self.driver.implicitly_wait(20)
+                    next_review_page_btn = self.driver.find_element_by_xpath(
+                        self.NEXT_REVIEWS_PAGE_XPATH.format(
+                            page_num=page_num + 1
+                        )
+                    )
+
+                    next_review_page_btn.click()
+                    element_present = EC.presence_of_element_located(
+                        (
+                            By.XPATH,
+                            self.NEXT_REVIEWS_PAGE_XPATH.format(
+                                page_num=page_num + 1
+                            ),
+                        )
+                    )
+                    WebDriverWait(self.driver, 15).until(element_present)
 
                     selenium_response_text: str = self.driver.page_source
                     new_response: HtmlResponse = HtmlResponse(
                         url="", body=selenium_response_text, encoding="utf-8"
                     )
                     response = new_response
-                    page_num += 1
 
-                except Exception:
-                    pass
+                except Exception as e:
+                    self.logger.warning(
+                        f"Can't parse reviews page: {page_num}"
+                    )
+                    self.logger.error(e)
+
+                finally:
+                    self.driver.close()
+                    self.driver = None
+                    page_num += 1
 
             else:
                 try_next_page = False
-
-            self.driver.close()
-            self.driver = None
 
     # Replace scrapy Request to splash Request
     # details: https://github.com/scrapy-plugins/scrapy-splash/issues/92
