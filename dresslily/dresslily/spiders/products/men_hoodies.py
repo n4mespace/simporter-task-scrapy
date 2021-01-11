@@ -1,17 +1,21 @@
-import scrapy
+from scrapy import Item
 from scrapy.linkextractors import LinkExtractor
 from scrapy.http import HtmlResponse
-from scrapy import Item
 from scrapy.spiders import CrawlSpider, Rule
-from scrapy_splash import SplashRequest, SplashTextResponse
+from scrapy_splash import SplashRequest
+
+from shutil import which
+from selenium import webdriver
+from selenium.webdriver.remote.webdriver import WebDriver
+from selenium.webdriver.chrome.options import Options
 
 from time import mktime
 from datetime import datetime
 
-from typing import List, Tuple, Iterable, Optional, Dict, Any
+from typing import List, Tuple, Iterable, Optional, Dict, Any, Union
 
 from ...items import MenHoodieItem, ReviewItem
-from .splash_scripts import NEXT_REVIEWS_PAGE, PAGE_LOADING_WAIT
+from ..splash_scripts import PAGE_LOADING_WAIT_SCRIPT
 
 
 class MenHoodiesSpider(CrawlSpider):
@@ -22,19 +26,22 @@ class MenHoodiesSpider(CrawlSpider):
     ]
 
     rules: Tuple[Rule, ...] = (
-        Rule(LinkExtractor(allow=r"page-[0-9]+")),
+        # Rule(LinkExtractor(allow=r"page-[0-9]+")),
         Rule(
             LinkExtractor(allow=r"product[0-9]+"),
             callback="parse_item",
         ),
     )
 
+    driver: Optional[WebDriver] = None
+
     splash_args: Dict[str, Any] = {
         "wait": 3.0,
-        "png": 0,
-        "html": 1,
+        "timeout": 90,
+        "resource_timeout": 20,
+        "images": 0,
         "endpoint": "execute",
-        "lua_source": PAGE_LOADING_WAIT,
+        "lua_source": PAGE_LOADING_WAIT_SCRIPT,
     }
 
     # Hoodie selectors
@@ -45,8 +52,8 @@ class MenHoodiesSpider(CrawlSpider):
     TOTAL_REVIEWS_XPATH: str = "//*[@id='js_reviewCountText']/text()"
     ORIGINAL_PRICE_XPATH: str = "/html/body/div[1]/div[5]/div[3]/div[3]/div[1]/div[1]/span[3]/span/text()"
 
-    # Hoodie review selectors
-    REVIEWS_XPATH: str = "/html/body/div[1]/div[5]/div[5]/div[4]/div[2]/div//div[@class='reviewlist clearfix']"
+    # Hoodie reviews selectors
+    REVIEWS_CSS: str = "body > div.dl-page > div.good-main > div.good-hgap.review_con > div.conlist.show_m > div > div > div"
     RATING_SELECTED_STARS_XPATH: str = (
         ".//p[@class='starscon_b dib']/i[@class='icon-star-black']"
     )
@@ -55,55 +62,47 @@ class MenHoodiesSpider(CrawlSpider):
     TEXT_XPATH: str = ".//p[@class='reviewcon']/text()"
     SIZE_XPATH: str = ".//p[@class='color-size']/span[1]/text()"
     COLOR_XPATH: str = ".//p[@class='color-size']/span[2]/text()"
+    NEXT_REVIEWS_PAGE_XPATH: str = (
+        '//*[@id="js_reviewPager"]/ul/li[{page_num}]/a'
+    )
 
     product_id_counter: int = 0
 
-    def parse_item(self, response: HtmlResponse) -> Iterable[Item]:
+    def parse_item(
+        self, response: HtmlResponse
+    ) -> Union[Iterable[Item], Iterable[SplashRequest]]:
         product_id: int = self.product_id_counter
-        product_url: str = response.url
-        name: Optional[str] = (
-            response.xpath(self.NAME_XPATH).extract_first() or ""
+        product_url: str = response.meta["splash"]["args"]["url"]
+        name: str = response.xpath(self.NAME_XPATH).get("")
+
+        original_price: float = float(
+            response.xpath(self.ORIGINAL_PRICE_XPATH).get(0.0)
         )
 
-        original_price_str: Optional[str] = response.xpath(
-            self.ORIGINAL_PRICE_XPATH
-        ).extract_first()
-        original_price: float = (
-            float(original_price_str) if original_price_str else 0.0
-        )
-
-        discount_str: Optional[str] = response.xpath(
-            self.DISCOUNT_XPATH
-        ).extract_first()
-        discount: int = int(discount_str) if discount_str else 0
+        discount: int = int(response.xpath(self.DISCOUNT_XPATH).get(0))
 
         discounted_price: float = (
             original_price * discount / 100.0 if discount else 0.0
         )
 
-        product_info_keys: List[str] = list(
-            map(
-                str.strip,
-                response.xpath(self.INFO_KEYS_XPATH).extract(),
-            )
-        )
-        product_info_values: List[str] = list(
-            map(
-                str.strip,
-                response.xpath(self.INFO_VALUES_XPATH).extract(),
-            )
-        )[1::2]
+        product_info_keys: List[str] = response.xpath(
+            self.INFO_KEYS_XPATH
+        ).getall()
+
+        product_info_values: List[str] = response.xpath(
+            self.INFO_VALUES_XPATH
+        ).getall()[1::2]
+
         product_info: str = "".join(
             [
-                f"{k}{v};"
+                f"{k.strip()}{v.strip()};"
                 for (k, v) in zip(product_info_keys, product_info_values)
             ]
         )
 
-        total_reviews_str: Optional[str] = response.xpath(
-            self.TOTAL_REVIEWS_XPATH
-        ).extract_first()
-        total_reviews: int = int(total_reviews_str) if total_reviews_str else 0
+        total_reviews: int = int(
+            response.xpath(self.TOTAL_REVIEWS_XPATH).get(0)
+        )
 
         yield MenHoodieItem(
             product_id=product_id,
@@ -116,53 +115,112 @@ class MenHoodiesSpider(CrawlSpider):
             product_info=product_info,
         )
 
-        reviews: List[HtmlResponse] = response.xpath(self.REVIEWS_XPATH)
+        response.meta["product_id"] = product_id
+        response.meta["product_url"] = product_url
 
-        for review in reviews:
-            rating: int = len(
-                review.xpath(self.RATING_SELECTED_STARS_XPATH).extract()
-            )
-            time: str = review.xpath(self.TIMESTAMP_XPATH).extract_first()
-            timestamp: float = mktime(
-                datetime.strptime(time, self.TIMESTAMP_FORMAT).timetuple()
-            )
-            text: str = review.xpath(self.TEXT_XPATH).extract_first()
-            size: str = (
-                review.xpath(self.SIZE_XPATH).extract_first().split(": ")[-1]
-            )
-            color: str = (
-                review.xpath(self.COLOR_XPATH).extract_first().split(": ")[-1]
-            )
+        if total_reviews > 0:
+            yield from self.parse_item_reviews(response=response)
 
-            yield ReviewItem(
-                product_id=product_id,
-                rating=rating,
-                timestamp=timestamp,
-                text=text,
-                size=size,
-                color=color,
+        self.product_id_counter = product_id + 1
+
+    def parse_item_reviews(
+        self,
+        response: HtmlResponse,
+    ) -> Union[Iterable[Item], Iterable[SplashRequest]]:
+        product_id: int = response.meta["product_id"]
+        product_url: str = response.meta["product_url"]
+        page_num: int = 3
+
+        try_next_page: bool = True
+
+        while try_next_page:
+            reviews: Optional[List[HtmlResponse]] = response.css(
+                self.REVIEWS_CSS
             )
 
-        self.product_id_counter += 1
+            for review in reviews:
+                rating: int = len(
+                    review.xpath(self.RATING_SELECTED_STARS_XPATH).getall()
+                )
+                time: str = review.xpath(self.TIMESTAMP_XPATH).get("")
+                timestamp: float = mktime(
+                    datetime.strptime(time, self.TIMESTAMP_FORMAT).timetuple()
+                )
+                text: str = review.xpath(self.TEXT_XPATH).get("")
+                size: str = (
+                    review.xpath(self.SIZE_XPATH).get(": ").split(": ")[-1]
+                )
+                color: str = (
+                    review.xpath(self.COLOR_XPATH).get(": ").split(": ")[-1]
+                )
+
+                yield ReviewItem(
+                    product_id=product_id,
+                    rating=rating,
+                    timestamp=timestamp,
+                    text=text,
+                    size=size,
+                    color=color,
+                )
+
+            if not self.driver:
+                options = Options()
+                options.add_argument("--headless")
+                options.add_argument("--disable-gpu")
+                options.add_argument("--silent")
+                options.add_argument("--log-level=3")
+
+                self.driver = webdriver.Chrome(
+                    executable_path=which("chromedriver"),
+                    chrome_options=options,
+                )
+
+            self.driver.get(product_url)
+
+            next_review_page_btn = self.driver.find_elements_by_xpath(
+                self.NEXT_REVIEWS_PAGE_XPATH.format(page_num=page_num)
+            )
+
+            if next_review_page_btn and next_review_page_btn[0].text != ">":
+                try:
+                    next_review_page_btn[0].click()
+                    self.driver.implicitly_wait(10)
+
+                    selenium_response_text: str = self.driver.page_source
+                    new_response: HtmlResponse = HtmlResponse(
+                        url="", body=selenium_response_text, encoding="utf-8"
+                    )
+                    response = new_response
+                    page_num += 1
+
+                except Exception:
+                    pass
+
+            else:
+                try_next_page = False
+
+            self.driver.close()
+            self.driver = None
 
     # Replace scrapy Request to splash Request
     # details: https://github.com/scrapy-plugins/scrapy-splash/issues/92
     def _build_request(self, rule_index, link):
-        return SplashRequest(
+        request: SplashRequest = SplashRequest(
             url=link.url,
             callback=self._callback,
             endpoint="execute",
-            # dont_process_response=True,
             errback=self._errback,
             args=self.splash_args,
-            meta=dict(rule=rule_index, link_text=link.text),
         )
+        request.meta["rule"] = rule_index
+        request.meta["link_text"] = link.text
+        return request
 
-    # Add SplashTextResponse to instance check for follow ups to work
+    # Remove instance check for follow ups to work
     # details: https://github.com/scrapy-plugins/scrapy-splash/issues/92
     def _requests_to_follow(self, response):
-        if not isinstance(response, (HtmlResponse, SplashTextResponse)):
-            return
+        # if not isinstance(response, HtmlResponse):
+        #     return
         seen = set()
         for rule_index, rule in enumerate(self._rules):
             links = [

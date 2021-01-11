@@ -2,7 +2,7 @@ BOT_NAME = "dresslily"
 
 SPIDER_MODULES = ["dresslily.spiders", "dresslily.spiders.products"]
 NEWSPIDER_MODULE = "dresslily.spiders.products"
-CONCURRENT_REQUESTS = 32
+CONCURRENT_REQUESTS = 8
 
 SPIDER_MIDDLEWARES = {
     # Splash setup
@@ -27,9 +27,9 @@ ITEM_PIPELINES = {
     # "dresslily.pipelines.ReviewPipeline": 301,
 }
 
-# AUTOTHROTTLE_ENABLED = True
-# AUTOTHROTTLE_START_DELAY = 3
-# AUTOTHROTTLE_MAX_DELAY = 30
+AUTOTHROTTLE_ENABLED = True
+AUTOTHROTTLE_START_DELAY = 3
+AUTOTHROTTLE_MAX_DELAY = 60
 
 # Splash setup
 SPLASH_URL = "http://localhost:8050"
