@@ -1,8 +1,7 @@
 from scrapy import Item
 from scrapy.linkextractors import LinkExtractor
 from scrapy.http import HtmlResponse
-from scrapy.spiders import CrawlSpider, Rule
-from scrapy_splash import SplashRequest
+from scrapy.spiders import Rule
 
 from shutil import which
 
@@ -12,6 +11,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 
 from time import mktime
 from datetime import datetime
@@ -19,10 +19,12 @@ from datetime import datetime
 from typing import List, Tuple, Iterable, Optional, Dict, Any
 
 from ...items import MenHoodieItem, ReviewItem
+from ..splash_spider import SplashCrawlSpider
+
 from ..splash_scripts import PAGE_LOADING_WAIT_SCRIPT
 
 
-class MenHoodiesSpider(CrawlSpider):
+class MenHoodiesSpider(SplashCrawlSpider):
     name: str = "men_hoodies"
     allowed_domains: List[str] = ["www.dresslily.com"]
     start_urls: List[str] = [
@@ -37,14 +39,13 @@ class MenHoodiesSpider(CrawlSpider):
         ),
     )
 
-    driver: Optional[WebDriver] = None
-
+    splash_endpoint: str = "execute"
     splash_args: Dict[str, Any] = {
         "wait": 3.0,
         "timeout": 90,
         "resource_timeout": 20,
         "images": 0,
-        "endpoint": "execute",
+        "endpoint": splash_endpoint,
         "lua_source": PAGE_LOADING_WAIT_SCRIPT,
     }
 
@@ -132,7 +133,7 @@ class MenHoodiesSpider(CrawlSpider):
         product_id: int = response.meta["product_id"]
         product_url: str = response.meta["product_url"]
         total_reviews: int = response.meta["total_reviews"]
-        page_num: int = 2
+        page_num: int = 2  # Starting with next page
 
         try_next_page: bool = True
 
@@ -170,85 +171,66 @@ class MenHoodiesSpider(CrawlSpider):
                     color=color,
                 )
 
+            try_next_page = False
+
             if total_reviews >= self.REVIEWS_BY_PAGE_COUNT * page_num:
-                options = Options()
-                options.add_argument("--headless")
-                options.add_argument("--disable-gpu")
-                options.add_argument("--silent")
-                options.add_argument("--log-level=3")
-
-                self.driver = webdriver.Chrome(
-                    executable_path=which("chromedriver"),
-                    chrome_options=options,
-                )
-
-                self.driver.get(product_url)
-
-                try:
-                    next_review_page_btn = self.driver.find_element_by_xpath(
-                        self.NEXT_REVIEWS_PAGE_XPATH.format(
-                            page_num=page_num + 1
-                        )
-                    )
-
-                    next_review_page_btn.click()
-                    element_present = EC.presence_of_element_located(
-                        (
-                            By.XPATH,
-                            self.NEXT_REVIEWS_PAGE_XPATH.format(
-                                page_num=page_num + 1
-                            ),
-                        )
-                    )
-                    WebDriverWait(self.driver, 15).until(element_present)
-
-                    selenium_response_text: str = self.driver.page_source
-                    new_response: HtmlResponse = HtmlResponse(
-                        url="", body=selenium_response_text, encoding="utf-8"
-                    )
-                    response = new_response
-
-                except Exception as e:
-                    self.logger.warning(
-                        f"Can't parse reviews page: {page_num}"
-                    )
-                    self.logger.error(e)
-
-                finally:
-                    self.driver.close()
-                    self.driver = None
+                next_page_response: Optional[
+                    HtmlResponse
+                ] = self._try_get_next_reviews(page_num, product_url)
+                if next_page_response:
+                    response = next_page_response
+                    try_next_page = True
                     page_num += 1
 
-            else:
-                try_next_page = False
+    def _try_get_next_reviews(
+        self, page_num: int, product_url: str, try_times: int = 4
+    ) -> Optional[HtmlResponse]:
+        new_response: Optional[HtmlResponse] = None
 
-    # Replace scrapy Request to splash Request
-    # details: https://github.com/scrapy-plugins/scrapy-splash/issues/92
-    def _build_request(self, rule_index, link):
-        request: SplashRequest = SplashRequest(
-            url=link.url,
-            callback=self._callback,
-            endpoint="execute",
-            errback=self._errback,
-            args=self.splash_args,
+        options = Options()
+        options.add_argument("--headless")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--silent")
+        options.add_argument("--log-level=3")
+
+        driver: WebDriver = webdriver.Chrome(
+            executable_path=which("chromedriver"),
+            chrome_options=options,
         )
-        request.meta["rule"] = rule_index
-        request.meta["link_text"] = link.text
-        return request
+        driver.get(product_url)
+        # driver.execute_script("document.body.style.zoom='zoom 1'")
 
-    # Remove instance check for follow ups to work
-    # details: https://github.com/scrapy-plugins/scrapy-splash/issues/92
-    def _requests_to_follow(self, response):
-        # if not isinstance(response, HtmlResponse):
-        #     return
-        seen = set()
-        for rule_index, rule in enumerate(self._rules):
-            links = [
-                lnk
-                for lnk in rule.link_extractor.extract_links(response)
-                if lnk not in seen
-            ]
-            for link in rule.process_links(links):
-                seen.add(link)
-                request = self._build_request(rule_index, link)
-                yield rule.process_request(request, response)
+        for _ in range(try_times):
+            new_response = self._get_next_reviews_with_driver(page_num, driver)
+
+            if new_response:
+                break
+
+        driver.close()
+        return new_response
+
+    def _get_next_reviews_with_driver(
+        self, page_num: int, driver: WebDriver
+    ) -> Optional[HtmlResponse]:
+        new_response: Optional[HtmlResponse] = None
+        try:
+            next_page_xpath: str = self.NEXT_REVIEWS_PAGE_XPATH.format(
+                page_num=page_num + 1
+            )
+            next_review_page_btn = driver.find_element_by_xpath(
+                next_page_xpath
+            )
+            next_review_page_btn.click()
+            driver.implicitly_wait(5)
+
+            selenium_response_text: str = driver.page_source
+            new_response = HtmlResponse(
+                url="", body=selenium_response_text, encoding="utf-8"
+            )
+
+        except Exception as e:
+            self.logger.warning(f"Can't parse reviews page: {page_num}")
+            self.logger.error(e)
+
+        finally:
+            return new_response

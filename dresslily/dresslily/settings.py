@@ -2,7 +2,7 @@ BOT_NAME = "dresslily"
 
 SPIDER_MODULES = ["dresslily.spiders", "dresslily.spiders.products"]
 NEWSPIDER_MODULE = "dresslily.spiders.products"
-CONCURRENT_REQUESTS = 8
+CONCURRENT_REQUESTS = 16
 
 SPIDER_MIDDLEWARES = {
     # Splash setup
@@ -20,6 +20,7 @@ DOWNLOADER_MIDDLEWARES = {
 
 RETRY_ENABLED = True
 RETRY_TIMES = 5
+RETRY_HTTP_CODES = [500, 502, 503, 504, 400, 403, 404, 408]
 
 ITEM_PIPELINES = {
     # Save items to .csv
