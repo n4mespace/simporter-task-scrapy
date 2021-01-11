@@ -53,7 +53,7 @@ class MenHoodiesSpider(CrawlSpider):
     ORIGINAL_PRICE_XPATH: str = "/html/body/div[1]/div[5]/div[3]/div[3]/div[1]/div[1]/span[3]/span/text()"
 
     # Hoodie reviews selectors
-    REVIEWS_CSS: str = "body > div.dl-page > div.good-main > div.good-hgap.review_con > div.conlist.show_m > div > div > div"
+    REVIEWS_XPATH: str = "//div[@class='reviewinfo']"
     RATING_SELECTED_STARS_XPATH: str = (
         ".//p[@class='starscon_b dib']/i[@class='icon-star-black']"
     )
@@ -134,8 +134,8 @@ class MenHoodiesSpider(CrawlSpider):
         try_next_page: bool = True
 
         while try_next_page:
-            reviews: Optional[List[HtmlResponse]] = response.css(
-                self.REVIEWS_CSS
+            reviews: Optional[List[HtmlResponse]] = response.xpath(
+                self.REVIEWS_XPATH
             )
 
             for review in reviews:
@@ -184,7 +184,7 @@ class MenHoodiesSpider(CrawlSpider):
             if next_review_page_btn and next_review_page_btn[0].text != ">":
                 try:
                     next_review_page_btn[0].click()
-                    self.driver.implicitly_wait(10)
+                    self.driver.implicitly_wait(20)
 
                     selenium_response_text: str = self.driver.page_source
                     new_response: HtmlResponse = HtmlResponse(
