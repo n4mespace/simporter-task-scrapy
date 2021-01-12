@@ -24,8 +24,8 @@ RETRY_HTTP_CODES = [500, 502, 503, 504, 400, 402, 403, 404, 408]
 
 ITEM_PIPELINES = {
     # Save items to .csv
-    # "dresslily.pipelines.MenHoodiePipeline": 300,
-    # "dresslily.pipelines.ReviewPipeline": 301,
+    "dresslily.pipelines.MenHoodiePipeline": 300,
+    "dresslily.pipelines.ReviewPipeline": 301,
 }
 
 AUTOTHROTTLE_ENABLED = True

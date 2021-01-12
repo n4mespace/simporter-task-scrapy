@@ -8,10 +8,6 @@ from shutil import which
 from selenium import webdriver
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 
 from time import mktime
 from datetime import datetime
@@ -120,11 +116,11 @@ class MenHoodiesSpider(SplashCrawlSpider):
             product_info=product_info,
         )
 
-        response.meta["product_id"] = product_id
-        response.meta["product_url"] = product_url
-        response.meta["total_reviews"] = total_reviews
-
         if total_reviews > 0:
+            response.meta["product_id"] = product_id
+            response.meta["product_url"] = product_url
+            response.meta["total_reviews"] = total_reviews
+
             yield from self.parse_item_reviews(response=response)
 
         self.product_id_counter = product_id + 1
