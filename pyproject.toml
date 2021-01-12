@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "simporter-task-scrapy"
+version = "0.1.0"
+description = "Parse info about man's hoodies"
+authors = ["n4mespace <zaxarchuk.d@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+Scrapy = "^2.4.1"
+pre-commit = "^2.9.3"
+typing = "^3.7.4"
+scrapy-splash = "^0.7.2"
+selenium = "^3.141.0"
+
+[tool.poetry.dev-dependencies]
+flake8 = "^3.8.4"
+black = {version = "^20.8b1", allow-prereleases = true}
+
+[tool.black]
+line-length = 79
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
