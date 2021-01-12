@@ -48,12 +48,12 @@ class MenHoodiesSpider(SplashCrawlSpider):
     product_id_counter: int = 0
 
     # Hoodie selectors
-    NAME_XPATH: str = "/html/body/div[1]/div[5]/div[3]/h1/span[2]/text()"
-    DISCOUNT_XPATH: str = "/html/body/div[1]/div[5]/div[3]/div[3]/div[1]/div[1]/span[3]/span/text()"
-    INFO_KEYS_XPATH: str = "/html/body/div[1]/div[5]/div[3]/div[12]/div[2]/div[5]/div[1]/div//strong/text()"
-    INFO_VALUES_XPATH: str = "/html/body/div[1]/div[5]/div[3]/div[12]/div[2]/div[5]/div[1]/div/div[2]/div/text()"
+    NAME_XPATH: str = "//h1/span[@class='goodtitle']/text()"
+    DISCOUNT_XPATH: str = "//span[@class='off js-dl-cutoff']/span/text()"
+    INFO_KEYS_XPATH: str = "//div[@class='xxkkk']/div//strong/text()"
+    INFO_VALUES_XPATH: str = "//div[@class='xxkkk20']/text()"
     TOTAL_REVIEWS_XPATH: str = "//*[@id='js_reviewCountText']/text()"
-    ORIGINAL_PRICE_XPATH: str = "/html/body/div[1]/div[5]/div[3]/div[3]/div[1]/div[1]/span[3]/span/text()"
+    ORIGINAL_PRICE_XPATH: str = "//span[@class='off js-dl-cutoff']/span/text()"
 
     # Hoodie reviews selectors
     REVIEWS_XPATH: str = "//div[@class='reviewinfo']"
