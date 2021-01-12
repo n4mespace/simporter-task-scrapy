@@ -3,6 +3,7 @@
 ### Project Description
 
 Use Scrapy framework to parse data about men hoodies with reviews.
+Website: https://www.dresslily.com/hoodies-c-181-page-1.html
 
 Items to parse:
 
