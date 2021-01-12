@@ -3,6 +3,7 @@
 ### Project Description
 
 Use Scrapy framework to parse data about men hoodies with reviews.
+
 Website: https://www.dresslily.com/hoodies-c-181-page-1.html
 
 Items to parse:
@@ -44,6 +45,6 @@ scrapy crawl men_hoodies
 
 ### Get data
 
-After scraping finishes you can grab data in csv ([sample data](simporter-task-scrapy/dresslily/scraped_data/))
+After scraping finishes you can grab data in csv ([sample data](dresslily/scraped_data/))
 - simporter-task-scrapy/dresslily/scraped_data/hoodies.csv
 - simporter-task-scrapy/dresslily/scraped_data/reviews.csv
