@@ -183,7 +183,7 @@ class MenHoodiesSpider(SplashCrawlSpider):
                     page_num += 1
 
     def _try_get_next_reviews(
-        self, page_num: int, product_url: str, try_times: int = 4
+        self, page_num: int, product_url: str, retry_times: int = 4
     ) -> Optional[HtmlResponse]:
         new_response: Optional[HtmlResponse] = None
 
@@ -194,13 +194,12 @@ class MenHoodiesSpider(SplashCrawlSpider):
         options.add_argument("--log-level=3")
 
         driver: WebDriver = webdriver.Chrome(
-            executable_path=which("chromedriver"),
-            chrome_options=options,
+            executable_path=which("chromedriver"), options=options
         )
         driver.get(product_url)
-        # driver.execute_script("document.body.style.zoom='zoom 1'")
+        driver.execute_script("document.body.style.zoom='zoom 1'")
 
-        for _ in range(try_times):
+        for _ in range(retry_times):
             new_response = self._get_next_reviews_with_driver(page_num, driver)
 
             if new_response:
@@ -213,6 +212,8 @@ class MenHoodiesSpider(SplashCrawlSpider):
         self, page_num: int, driver: WebDriver
     ) -> Optional[HtmlResponse]:
         new_response: Optional[HtmlResponse] = None
+        driver.refresh()
+
         try:
             next_page_xpath: str = self.NEXT_REVIEWS_PAGE_XPATH.format(
                 page_num=page_num + 1
@@ -221,7 +222,8 @@ class MenHoodiesSpider(SplashCrawlSpider):
                 next_page_xpath
             )
             next_review_page_btn.click()
-            driver.implicitly_wait(5)
+
+            driver.implicitly_wait(10)
 
             selenium_response_text: str = driver.page_source
             new_response = HtmlResponse(
