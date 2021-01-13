@@ -29,7 +29,6 @@ Items to parse:
 ### Used tools
 - Scrapy framework
 - Splash
-- Selenium
 
 ### Run crawler
 1. Clone this repo and install dependencies (poetry recommended)

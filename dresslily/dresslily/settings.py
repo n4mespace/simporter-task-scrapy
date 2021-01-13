@@ -2,7 +2,7 @@ BOT_NAME = "dresslily"
 
 SPIDER_MODULES = ["dresslily.spiders", "dresslily.spiders.products"]
 NEWSPIDER_MODULE = "dresslily.spiders.products"
-CONCURRENT_REQUESTS = 16
+CONCURRENT_REQUESTS = 32
 
 SPIDER_MIDDLEWARES = {
     # Splash setup
@@ -29,10 +29,15 @@ ITEM_PIPELINES = {
 }
 
 AUTOTHROTTLE_ENABLED = True
-AUTOTHROTTLE_START_DELAY = 10
+AUTOTHROTTLE_START_DELAY = 1
 AUTOTHROTTLE_MAX_DELAY = 120
 
 # Splash setup
 SPLASH_URL = "http://localhost:8050"
 DUPEFILTER_CLASS = "scrapy_splash.SplashAwareDupeFilter"
 HTTPCACHE_STORAGE = "scrapy_splash.SplashAwareFSCacheStorage"
+
+# Crawl in DFO order
+DEPTH_PRIORITY = 1
+SCHEDULER_DISK_QUEUE = "scrapy.squeues.PickleFifoDiskQueue"
+SCHEDULER_MEMORY_QUEUE = "scrapy.squeues.FifoMemoryQueue"
