@@ -43,7 +43,7 @@ scrapy crawl men_hoodies
 ```
 or
 ```sh
-chmod +x ./start_crawler.sh
+chmod +x start_crawler.sh
 ./start_crawler.sh
 ```
 
