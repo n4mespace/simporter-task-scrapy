@@ -6,6 +6,8 @@ from typing import Dict, Any
 
 class SplashCrawlSpider(CrawlSpider):
     """
+    Crawl pages due to specified rules via Splash
+
     details: https://github.com/scrapy-plugins/scrapy-splash/issues/92
     """
 
@@ -26,6 +28,7 @@ class SplashCrawlSpider(CrawlSpider):
         )
         request.meta["rule"] = rule_index
         request.meta["link_text"] = link.text
+        request.meta["real_url"] = link.url
         return request
 
     def _requests_to_follow(self, response):

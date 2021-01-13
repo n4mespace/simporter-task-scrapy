@@ -42,11 +42,11 @@ class SaveItemToCsvAbstractPipeline(ABC):
         return item
 
 
-class MenHoodiePipeline(SaveItemToCsvAbstractPipeline):
+class SaveMenHoodiesPipeline(SaveItemToCsvAbstractPipeline):
     item_name: str = "hoodies"
     item_class: ItemMeta = MenHoodieItem
 
 
-class ReviewPipeline(SaveItemToCsvAbstractPipeline):
+class SaveReviewsPipeline(SaveItemToCsvAbstractPipeline):
     item_name: str = "reviews"
     item_class: ItemMeta = ReviewItem
