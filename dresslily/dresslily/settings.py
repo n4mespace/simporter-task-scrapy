@@ -1,6 +1,6 @@
 BOT_NAME = "dresslily"
 
-SPIDER_MODULES = ["dresslily.spiders", "dresslily.spiders.products"]
+SPIDER_MODULES = ["dresslily.spiders"]
 NEWSPIDER_MODULE = "dresslily.spiders.products"
 CONCURRENT_REQUESTS = 16
 
@@ -24,12 +24,12 @@ RETRY_HTTP_CODES = [500, 502, 503, 504, 400, 402, 403, 404, 408]
 
 ITEM_PIPELINES = {
     # Save items to .csv
-    "dresslily.pipelines.MenHoodiePipeline": 300,
-    "dresslily.pipelines.ReviewPipeline": 301,
+    "dresslily.pipelines.SaveMenHoodiesPipeline": 300,
+    "dresslily.pipelines.SaveReviewsPipeline": 301,
 }
 
 AUTOTHROTTLE_ENABLED = True
-AUTOTHROTTLE_START_DELAY = 10
+AUTOTHROTTLE_START_DELAY = 1
 AUTOTHROTTLE_MAX_DELAY = 120
 
 # Splash setup

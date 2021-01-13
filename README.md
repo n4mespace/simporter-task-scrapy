@@ -29,7 +29,6 @@ Items to parse:
 ### Used tools
 - Scrapy framework
 - Splash
-- Selenium
 
 ### Run crawler
 1. Clone this repo and install dependencies (poetry recommended)
@@ -41,6 +40,11 @@ docker run -it -p 8050:8050 scrapinghub/splash --max-timeout 3600
 ```sh
 cd dresslily
 scrapy crawl men_hoodies
+```
+or
+```sh
+chmod +x start_crawler.sh
+./start_crawler.sh
 ```
 
 ### Get data
