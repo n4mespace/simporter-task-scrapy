@@ -41,6 +41,11 @@ docker run -it -p 8050:8050 scrapinghub/splash --max-timeout 3600
 cd dresslily
 scrapy crawl men_hoodies
 ```
+or
+```sh
+chmod +x ./start_crawler.sh
+./start_crawler.sh
+```
 
 ### Get data
 
