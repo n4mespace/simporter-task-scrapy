@@ -1,6 +1,6 @@
 BOT_NAME = "dresslily"
 
-SPIDER_MODULES = ["dresslily.spiders", "dresslily.spiders.products"]
+SPIDER_MODULES = ["dresslily.spiders"]
 NEWSPIDER_MODULE = "dresslily.spiders.products"
 CONCURRENT_REQUESTS = 32
 
@@ -24,8 +24,8 @@ RETRY_HTTP_CODES = [500, 502, 503, 504, 400, 402, 403, 404, 408]
 
 ITEM_PIPELINES = {
     # Save items to .csv
-    "dresslily.pipelines.MenHoodiePipeline": 300,
-    "dresslily.pipelines.ReviewPipeline": 301,
+    "dresslily.pipelines.SaveMenHoodiesPipeline": 300,
+    "dresslily.pipelines.SaveReviewsPipeline": 301,
 }
 
 AUTOTHROTTLE_ENABLED = True
@@ -36,8 +36,3 @@ AUTOTHROTTLE_MAX_DELAY = 120
 SPLASH_URL = "http://localhost:8050"
 DUPEFILTER_CLASS = "scrapy_splash.SplashAwareDupeFilter"
 HTTPCACHE_STORAGE = "scrapy_splash.SplashAwareFSCacheStorage"
-
-# Crawl in DFO order
-DEPTH_PRIORITY = 1
-SCHEDULER_DISK_QUEUE = "scrapy.squeues.PickleFifoDiskQueue"
-SCHEDULER_MEMORY_QUEUE = "scrapy.squeues.FifoMemoryQueue"

@@ -14,10 +14,12 @@ from ..splash_spider import SplashCrawlSpider
 
 class MenHoodiesSpider(SplashCrawlSpider):
     name: str = "men_hoodies"
+
     allowed_domains: List[str] = ["www.dresslily.com"]
     start_urls: List[str] = [
         "https://www.dresslily.com/hoodies-c-181-page-1.html",
     ]
+    item_reviews_page_url: str = "https://www.dresslily.com/m-review-a-view_review-goods_id-{product_id}-page-{page_num}.html"
 
     rules: Tuple[Rule, ...] = (
         Rule(
@@ -25,16 +27,12 @@ class MenHoodiesSpider(SplashCrawlSpider):
         ),
         Rule(
             LinkExtractor(allow=r"product[0-9]+"),
-            callback="parse_item",
+            callback="parse_hoodie",
         ),
     )
 
-    item_reviews_page_url: str = "https://www.dresslily.com/m-review-a-view_review-goods_id-{product_id}-page-{page_num}.htm"
-
     splash_args: Dict[str, Any] = {
         "wait": 3.0,
-        "timeout": 90,
-        "resource_timeout": 20,
         "images": 0,
     }
 
@@ -50,22 +48,19 @@ class MenHoodiesSpider(SplashCrawlSpider):
     ORIGINAL_PRICE_WITH_DISCOUNT_CSS: str = "span.js-dl-marketPrice.marketPrice.my-shop-price.dl-has-rrp-tag > span.dl-price ::text"
 
     # Hoodie reviews selectors
-    REVIEWS_XPATH: str = "//div[@class='reviewinfo']"
+    REVIEWS_LIST_XPATH: str = "//div[@class='reviewinfo']"
     RATING_SELECTED_STARS_XPATH: str = (
         ".//p[@class='starscon_b dib']/i[@class='icon-star-black']"
     )
     TIMESTAMP_XPATH: str = ".//span[@class='reviewtime']/text()"
-    TIMESTAMP_FORMAT: str = "%b,%d %Y %H:%M:%S"
     TEXT_XPATH: str = ".//p[@class='reviewcon']/text()"
     SIZE_XPATH: str = ".//p[@class='color-size']/span[1]/text()"
     COLOR_XPATH: str = ".//p[@class='color-size']/span[2]/text()"
-    NEXT_REVIEWS_PAGE_XPATH: str = (
-        '//*[@id="js_reviewPager"]/ul/li[{page_num}]/a'
-    )
 
-    REVIEWS_BY_PAGE_COUNT: int = 4
+    TIMESTAMP_FORMAT: str = "%b,%d %Y %H:%M:%S"
+    REVIEWS_BY_PAGE_COUNT: int = 6
 
-    def parse_item(
+    def parse_hoodie(
         self, response: HtmlResponse
     ) -> Union[Iterable[Item], Iterable[ScrapyRequest]]:
         product_url: str = response.meta["real_url"]
@@ -73,11 +68,10 @@ class MenHoodiesSpider(SplashCrawlSpider):
             product_url.split("product")[-1].replace(".html", "")
         )
         name: str = response.xpath(self.NAME_XPATH).get("")
-
         original_price: float = float(
             response.css(self.ORIGINAL_PRICE_WITHOUT_DISCOUNT_CSS).get(0.0)
         )
-
+        discounted_price: float = 0.0
         discount: int = int(response.css(self.DISCOUNT_CSS).get(0))
 
         if discount:
@@ -87,8 +81,6 @@ class MenHoodiesSpider(SplashCrawlSpider):
                     -1
                 ]
             )
-        else:
-            discounted_price = 0.0
 
         product_info_keys: List[str] = response.xpath(
             self.INFO_KEYS_XPATH
@@ -121,21 +113,33 @@ class MenHoodiesSpider(SplashCrawlSpider):
         )
 
         if total_reviews > 0:
-            pages_count: int = int(total_reviews / self.REVIEWS_BY_PAGE_COUNT)
+            yield from self.parse_reviews_pages(
+                product_id=product_id,
+                total_reviews=total_reviews,
+            )
 
-            for page_num in range(1, pages_count + 1):
-                yield ScrapyRequest(
-                    url=self.item_reviews_page_url.format(
-                        product_id=product_id, page_num=page_num
-                    ),
-                    callback=self.parse_item_reviews,
-                    meta={"product_id": product_id},
-                    priority=1,
-                )
+    def parse_reviews_pages(
+        self, product_id: int, total_reviews: int
+    ) -> Iterable[ScrapyRequest]:
+        reviews_left: int = total_reviews
+        page_num: int = 1
 
-    def parse_item_reviews(self, response: HtmlResponse) -> Iterable[Item]:
+        while reviews_left > 0:
+            # No need in loading js
+            yield ScrapyRequest(
+                url=self.item_reviews_page_url.format(
+                    product_id=product_id,
+                    page_num=page_num,
+                ),
+                callback=self.parse_reviews,
+                meta={"product_id": product_id},
+            )
+            reviews_left -= self.REVIEWS_BY_PAGE_COUNT
+            page_num += 1
+
+    def parse_reviews(self, response: HtmlResponse) -> Iterable[Item]:
         product_id: int = int(response.meta["product_id"])
-        reviews: List[HtmlResponse] = response.xpath(self.REVIEWS_XPATH)
+        reviews: List[HtmlResponse] = response.xpath(self.REVIEWS_LIST_XPATH)
 
         for review in reviews:
             rating: int = len(
