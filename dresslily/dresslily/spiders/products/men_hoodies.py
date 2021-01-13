@@ -132,7 +132,12 @@ class MenHoodiesSpider(SplashCrawlSpider):
                     page_num=page_num,
                 ),
                 callback=self.parse_reviews,
-                meta={"product_id": product_id},
+                priority=1,
+                dont_filter=True,
+                meta={
+                    "product_id": product_id,
+                    "priority": 1,
+                },
             )
             reviews_left -= self.REVIEWS_BY_PAGE_COUNT
             page_num += 1

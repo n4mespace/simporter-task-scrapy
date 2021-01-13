@@ -2,7 +2,7 @@ BOT_NAME = "dresslily"
 
 SPIDER_MODULES = ["dresslily.spiders"]
 NEWSPIDER_MODULE = "dresslily.spiders.products"
-CONCURRENT_REQUESTS = 32
+CONCURRENT_REQUESTS = 16
 
 SPIDER_MIDDLEWARES = {
     # Splash setup
