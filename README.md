@@ -32,14 +32,14 @@ Items to parse:
 
 ### Run crawler
 1. Clone this repo and install dependencies (poetry recommended)
-2. Run Splash
+2. Run Splash. (Due to memory leaks, set restart policy)
 ```sh
-docker run -it -p 8050:8050 scrapinghub/splash --max-timeout 3600
+docker run -it -p 8050:8050 scrapinghub/splash --memory=3g --restart=always
 ```
 3. Start crawler
 ```sh
 cd dresslily
-scrapy crawl men_hoodies
+scrapy crawl men_hoodies -s JOBDIR=crawls/men_hoodies
 ```
 or
 ```sh

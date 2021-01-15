@@ -132,18 +132,14 @@ class MenHoodiesSpider(SplashCrawlSpider):
                     page_num=page_num,
                 ),
                 callback=self.parse_reviews,
-                priority=1,
-                dont_filter=True,
-                meta={
-                    "product_id": product_id,
-                    "priority": 1,
-                },
+                cb_kwargs={"product_id": product_id},
             )
             reviews_left -= self.REVIEWS_BY_PAGE_COUNT
             page_num += 1
 
-    def parse_reviews(self, response: HtmlResponse) -> Iterable[Item]:
-        product_id: int = int(response.meta["product_id"])
+    def parse_reviews(
+        self, response: HtmlResponse, product_id: int
+    ) -> Iterable[Item]:
         reviews: List[HtmlResponse] = response.xpath(self.REVIEWS_LIST_XPATH)
 
         for review in reviews:

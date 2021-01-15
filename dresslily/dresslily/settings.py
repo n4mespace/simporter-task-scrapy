@@ -20,7 +20,7 @@ DOWNLOADER_MIDDLEWARES = {
 
 RETRY_ENABLED = True
 RETRY_TIMES = 5
-RETRY_HTTP_CODES = [500, 502, 503, 504, 400, 402, 403, 404, 408]
+RETRY_HTTP_CODES = [500, 502, 503, 504, 400, 402, 403, 404, 408, 111]
 
 ITEM_PIPELINES = {
     # Save items to .csv
@@ -36,3 +36,7 @@ AUTOTHROTTLE_MAX_DELAY = 120
 SPLASH_URL = "http://localhost:8050"
 DUPEFILTER_CLASS = "scrapy_splash.SplashAwareDupeFilter"
 HTTPCACHE_STORAGE = "scrapy_splash.SplashAwareFSCacheStorage"
+
+DEPTH_PRIORITY = -1  # Crawl nested request firstly
+SCHEDULER_DISK_QUEUE = "scrapy.squeues.PickleLifoDiskQueue"
+SCHEDULER_MEMORY_QUEUE = "scrapy.squeues.LifoMemoryQueue"
