@@ -9,22 +9,22 @@ Website: https://www.dresslily.com/hoodies-c-181-page-1.html
 Items to parse:
 
 1. Men Hoodies
-    ● product_id
-    ● product_url
-    ● name
-    ● discount (%)
-    ● discounted_price (0 if no sale)
-    ● original_price
-    ● total_reviews
-    ● product_info (formatted string, e.g. “Occasion:Daily;Style:Fashion” )
+    - product_id
+    - product_url
+    - name
+    - discount (%)
+    - discounted_price (0 if no sale)
+    - original_price
+    - total_reviews
+    - product_info (formatted string, e.g. “Occasion:Daily;Style:Fashion” )
 
 2. Reviews
-    ● product_id
-    ● rating
-    ● timestamp (convert review date to Unix timestamp)
-    ● text
-    ● size
-    ● color
+    - product_id
+    - rating
+    - timestamp (convert review date to Unix timestamp)
+    - text
+    - size
+    - color
 
 ### Used tools
 - Scrapy framework
