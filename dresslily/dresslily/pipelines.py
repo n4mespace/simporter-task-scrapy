@@ -28,7 +28,7 @@ class SaveItemToCsvAbstractPipeline(ABC):
         return pipeline
 
     def spider_opened(self, spider):
-        self.file = open(f"{self.SAVE_FOLDER}/{self.item_name}.csv", "wb")
+        self.file = open(f"{self.SAVE_FOLDER}/{self.item_name}.csv", "ab")
         self.exporter = CsvItemExporter(self.file)
         self.exporter.start_exporting()
 
